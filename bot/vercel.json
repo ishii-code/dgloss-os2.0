@@ -5,5 +5,6 @@
       "maxDuration": 300
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "crons": [{ "path": "/jobs/nightly-summary", "schedule": "0 18 * * *" }]
 }

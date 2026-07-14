@@ -66,6 +66,13 @@ export const config = {
     mode: (optionalEnv("ASYNC_MODE") ?? "off") as "off" | "inline",
   },
 
+  /** 夜間バッチ（COST_DESIGN §2⑤・Vercel Cron） */
+  jobs: {
+    /** /jobs/* 保護用（Vercel Cron の Authorization: Bearer と一致させる） */
+    token: optionalEnv("JOBS_API_TOKEN"),
+    summaryTable: optionalEnv("SUPABASE_SUMMARY_TABLE") ?? "customer_summaries",
+  },
+
   /** 1質問あたり入力トークン上限（COST_DESIGN §2⑥） */
   maxInputTokens: Number(env("MAX_INPUT_TOKENS", "100000")),
 } as const;

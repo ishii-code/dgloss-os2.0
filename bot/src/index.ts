@@ -8,6 +8,7 @@ import { config } from "./config.js";
 import { verifyChatRequest } from "./chat/verify.js";
 import { handleChatEvent } from "./chat/handler.js";
 import { buildAuthUrl, exchangeCodeForToken, revokeAllTokens } from "./sources/googleAuth.js";
+import { runNightlySummary } from "./jobs/nightlySummary.js";
 import type { ChatEvent } from "./chat/types.js";
 
 export const app = express();
@@ -79,6 +80,24 @@ app.post("/admin/revoke-all", async (req: Request, res: Response) => {
   } catch (e) {
     console.error("[/admin/revoke-all]", e);
     return res.status(500).json({ error: "revoke failed" });
+  }
+});
+
+/**
+ * 夜間バッチ（COST_DESIGN §2⑤）。Vercel Cron が定時にGETで叩く。
+ * Vercel Cron は Authorization: Bearer <CRON_SECRET> を付与するので、JOBS_API_TOKEN と一致検証する。
+ */
+app.get("/jobs/nightly-summary", async (req: Request, res: Response) => {
+  const authz = req.header("authorization");
+  if (config.jobs.token && authz !== `Bearer ${config.jobs.token}`) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  try {
+    const result = await runNightlySummary();
+    return res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("[/jobs/nightly-summary]", e);
+    return res.status(500).json({ error: "job failed" });
   }
 });
 
