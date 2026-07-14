@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.2.0...v1.3.0) (2026-07-14)
+
+
+### Features
+
+* **db:** Supabaseスキーマ集約とQAログ永続化を追加 ([e4c345c](https://github.com/ishii-code/dgloss-os2.0/commit/e4c345cb304fe4167fe91fd6bb3d369e5d4a4c2e))
+
 # [1.2.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.1.0...v1.2.0) (2026-07-14)
 
 
