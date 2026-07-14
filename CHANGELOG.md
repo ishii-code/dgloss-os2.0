@@ -1,3 +1,11 @@
+# [1.2.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.1.0...v1.2.0) (2026-07-14)
+
+
+### Features
+
+* **chat:** 回答をcardsV2(本文+出典リンクボタン)で表示 ([3aacbd4](https://github.com/ishii-code/dgloss-os2.0/commit/3aacbd4d583a73cd8aecbf6005c6f8a52d766d05))
+* **jobs:** 顧客サマリー夜間バッチの骨格を追加 (Vercel Cron) ([967a87c](https://github.com/ishii-code/dgloss-os2.0/commit/967a87ca6564abb2c594a90b572bb47fdbd9cf2d))
+
 # [1.1.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.0.0...v1.1.0) (2026-07-14)
 
 
