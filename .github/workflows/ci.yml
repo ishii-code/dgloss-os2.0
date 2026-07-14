@@ -1,0 +1,29 @@
+name: ci
+
+# PR・push 時に品質ゲート（型チェック→スモーク→ゴールデンセット評価）を自動実行。
+# デプロイ前でも回帰を防ぐ（dgloss標準 CONVENTIONS: test/build を CI で）。
+on:
+  pull_request:
+  push:
+    branches: [claude/diglos-knowledge-system-mk9r6t, main]
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bot/package-lock.json
+      - run: npm ci
+      - name: 型チェック
+        run: npm run typecheck
+      - name: スモークテスト
+        run: MOCK_MODE=true npm run smoke
+      - name: ゴールデンセット評価（採点ロジック自己検証＋疎通）
+        run: MOCK_MODE=true npm run eval
