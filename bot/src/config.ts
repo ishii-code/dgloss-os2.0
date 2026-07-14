@@ -39,6 +39,26 @@ export const config = {
     ],
   },
 
+  /** トークン暗号化の鍵（SECURITY T1）。本番は Cloud KMS の鍵リソース名 */
+  kms: {
+    keyName: optionalEnv("KMS_KEY_NAME"),
+  },
+
+  /** トークン保管の Firestore コレクション（本番） */
+  firestore: {
+    collection: optionalEnv("FIRESTORE_TOKEN_COLLECTION") ?? "oauth_tokens",
+  },
+
+  /** 一括失効API等の管理操作を許可する共有シークレット（本番は要設定） */
+  admin: {
+    token: optionalEnv("ADMIN_API_TOKEN"),
+  },
+
+  /** ローカル開発用（MOCK時のみ有効）の簡易マスター鍵（base64・32byte） */
+  dev: {
+    masterKeyB64: optionalEnv("DEV_MASTER_KEY"),
+  },
+
   /** 1質問あたり入力トークン上限（COST_DESIGN §2⑥） */
   maxInputTokens: Number(env("MAX_INPUT_TOKENS", "100000")),
 } as const;

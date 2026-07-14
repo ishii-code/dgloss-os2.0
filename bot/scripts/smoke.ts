@@ -4,6 +4,33 @@
  */
 import { handleChatEvent } from "../src/chat/handler.js";
 import type { ChatEvent } from "../src/chat/types.js";
+import { getTokenStore } from "../src/sources/tokenStore.js";
+import { maskQuestion } from "../src/logging/mask.js";
+
+// --- 暗号化トークン保管の往復（SECURITY T1）---
+const store = getTokenStore();
+await store.set("users/enc", { accessToken: "secret-abc", refreshToken: "refresh-xyz" });
+const back = await store.get("users/enc");
+if (back?.accessToken !== "secret-abc") {
+  console.error("暗号化トークン往復に失敗");
+  process.exit(1);
+}
+const revoked = await store.revokeAll();
+if ((await store.get("users/enc")) !== undefined || revoked < 1) {
+  console.error("一括失効に失敗");
+  process.exit(1);
+}
+console.log(`✅ 暗号化トークン保管＋一括失効OK（失効 ${revoked} 件）`);
+
+// --- ログ機密度マスク（案B）---
+const normal = maskQuestion("シコメル様の契約条件は？");
+const sensitive = maskQuestion("田中さんの給与と人事評価は？");
+if (normal.masked || !sensitive.masked) {
+  console.error("マスク判定に失敗", { normal, sensitive });
+  process.exit(1);
+}
+console.log(`✅ 機密度マスクOK（通常=素通し / 機微=マスク）`);
+
 
 const event: ChatEvent = {
   type: "MESSAGE",

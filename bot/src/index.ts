@@ -6,7 +6,7 @@ import type { Request, Response } from "express";
 import { config } from "./config.js";
 import { verifyChatRequest } from "./chat/verify.js";
 import { handleChatEvent } from "./chat/handler.js";
-import { buildAuthUrl } from "./sources/googleAuth.js";
+import { buildAuthUrl, exchangeCodeForToken, revokeAllTokens } from "./sources/googleAuth.js";
 import type { ChatEvent } from "./chat/types.js";
 
 const app = express();
@@ -36,7 +36,7 @@ app.post("/chat", async (req: Request, res: Response) => {
   }
 });
 
-/** OAuth 連携開始（S3 で本実装。userId を state に載せる） */
+/** OAuth 連携開始（userId を state に載せる） */
 app.get("/oauth/start", (req: Request, res: Response) => {
   const userId = String(req.query.userId ?? "");
   if (!userId) return res.status(400).json({ error: "userId required" });
@@ -45,6 +45,39 @@ app.get("/oauth/start", (req: Request, res: Response) => {
   } catch (e) {
     console.error("[/oauth/start]", e);
     return res.status(500).json({ error: "oauth not configured" });
+  }
+});
+
+/** OAuth コールバック：認可コードを暗号化トークンとして保存 */
+app.get("/oauth/callback", async (req: Request, res: Response) => {
+  const code = String(req.query.code ?? "");
+  const userId = String(req.query.state ?? "");
+  if (!code || !userId) return res.status(400).send("認可情報が不足しています。");
+  try {
+    await exchangeCodeForToken(code, userId);
+    return res.send("連携が完了しました。Google Chat に戻って質問してください。");
+  } catch (e) {
+    console.error("[/oauth/callback]", e);
+    return res.status(500).send("連携に失敗しました。時間をおいて再度お試しください。");
+  }
+});
+
+/**
+ * 一括失効（SECURITY §5・T1インシデント対応）。侵害時に全ユーザーのトークンを削除する。
+ * 管理用の共有シークレット（ADMIN_API_TOKEN）が一致した場合のみ実行。
+ */
+app.post("/admin/revoke-all", async (req: Request, res: Response) => {
+  const provided = req.header("x-admin-token");
+  if (!config.admin.token || provided !== config.admin.token) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  try {
+    const count = await revokeAllTokens();
+    console.warn(`[/admin/revoke-all] 全トークン失効 count=${count}`);
+    return res.json({ revoked: count });
+  } catch (e) {
+    console.error("[/admin/revoke-all]", e);
+    return res.status(500).json({ error: "revoke failed" });
   }
 });
 
