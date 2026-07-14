@@ -59,6 +59,19 @@ export const config = {
     masterKeyB64: optionalEnv("DEV_MASTER_KEY"),
   },
 
+  /** 非同期回答（S4）。off=同期 / inline=プロセス内背景 / cloudtasks=Cloud Tasks */
+  async: {
+    mode: (optionalEnv("ASYNC_MODE") ?? "off") as "off" | "inline" | "cloudtasks",
+  },
+
+  /** Cloud Tasks 設定（ASYNC_MODE=cloudtasks時） */
+  tasks: {
+    queuePath: optionalEnv("TASKS_QUEUE_PATH"), // projects/../locations/../queues/..
+    workerUrl: optionalEnv("TASKS_WORKER_URL"), // https://.../tasks/answer
+    invokerSaEmail: optionalEnv("TASKS_INVOKER_SA"), // OIDC発行に使うSA
+    token: optionalEnv("TASKS_SHARED_TOKEN"), // /tasks/answer 保護用
+  },
+
   /** 1質問あたり入力トークン上限（COST_DESIGN §2⑥） */
   maxInputTokens: Number(env("MAX_INPUT_TOKENS", "100000")),
 } as const;

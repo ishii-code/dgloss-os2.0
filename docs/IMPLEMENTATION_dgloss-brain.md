@@ -65,6 +65,9 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 権限の肝（`ACCESS_CONTROL` §3 Phase 2）：**ボットのサービスアカウントにドメインワイド委任はしない。**
 各ユーザーが初回に OAuth 連携し、そのトークンで本人として検索する。→ 共有ドライブ権限がそのまま効き、L1〜L4制御が自動成立。
 
+**デプロイ先の決定（2026-07-14 石井）**：**ボットはCloud Run／フロントエンド(Next.js)は従来どおりVercel**。
+理由：ボットが触るKMS暗号鍵・Firestore・Workspaceは全てGCP内にあり、同じGCPに置けば**GCPの静的認証鍵を社外(Vercel)に出さずに済む**（SECURITY方針＝鍵を外に出さないと一致）。加えて長時間・非同期処理がCloud Runの方が自然。Chat API/KMS/Firestoreは元々GCP必須なので、Cloud Run採用でプラットフォームは増えない（追加契約なし・無料枠内でほぼ無償）。
+
 ## 4. コスト最適化の実装ポイント（`COST_DESIGN` の反映）
 
 - 段階型：検索はGoogle API（LLMトークン非消費）→ 上位ヒットの抜粋のみLLMへ → 精読は上位2〜5件
@@ -75,12 +78,12 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 
 ## 5. 実装ステップ（スプリント）
 
-1. **S1 スケルトン起動**（本コミット）：Express + Chat webhook + JWT検証 + モックエージェントでローカル起動・単体テスト
-2. **S2 エージェント実装**：Anthropic tool-use ループ、Drive検索ツールを実データで接続、出典整形
-3. **S3 OAuth**：ユーザーOAuthフロー＋トークン保存（Firestore）＋リフレッシュ、Gmail本人検索
-4. **S4 非同期応答**：受付即応 → Cloud Tasks/バックグラウンドで実行 → Chat REST で追記投稿
-5. **S5 ログ/評価**：QAログ・未回答記録、ゴールデンセットでの回帰評価スクリプト
-6. **S6 デプロイ**：Dockerfile・Cloud Run・Secret Manager 連携、Chatアプリ本登録、限定公開で試用
+1. ✅ **S1 スケルトン起動**：Express + Chat webhook + JWT検証 + モックエージェント。tsc0件・スモーク成功
+2. 🟡 **S2 エージェント実装**：tool-useループ実装済（`brain/agent.ts`）。実データ接続はGCP設定後に検証
+3. ✅ **S3 OAuth＋暗号化保管**：OAuthフロー(`/oauth/callback`)＋KMSエンベロープ暗号化トークン保管(`sources/tokenStore.ts`)＋リフレッシュ再保存＋一括失効(`/admin/revoke-all`)。Gmail本人検索も実装済
+4. ✅ **S4 非同期応答**：受付即応(`RECEIPT_TEXT`)→ inline/Cloud Tasks(`chat/dispatch.ts`)→ Chat REST追記投稿(`chat/postMessage.ts`)。ワーカー`/tasks/answer`。スモークで往復確認済
+5. 🟡 **S5 ログ/評価**：QAログ＋機密度マスク(案B)実装済。ゴールデンセット回帰評価スクリプトは未（次）
+6. ⬜ **S6 デプロイ**：Dockerfile済。Cloud Runデプロイ・Secret Manager連携・Chatアプリ本登録・限定公開はGCP設定(`SETUP_GCP`)後
 
 ## 6. 受け入れ基準（Phase 2 完了の定義）
 
@@ -95,7 +98,8 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 | # | 事項 | 現時点の仮定（進める） |
 |---|---|---|
 | 1 | トークン保存先 | Firestore（Cloud Run から最小権限で読み書き）を採用 |
-| 2 | 非同期実行基盤 | まず同一プロセス内バックグラウンド、負荷が出たら Cloud Tasks |
+| 2 | 非同期実行基盤 | `ASYNC_MODE`で切替(off/inline/cloudtasks)実装済。まずinline、負荷が出たらcloudtasks |
+| 2' | デプロイ先 | **決定：ボット=Cloud Run／フロント=Vercel**（§3参照） |
 | 3 | 使用モデルID | Haiku=`claude-haiku-4-5-20251001` / Sonnet=`claude-sonnet-4-6` / Opus=`claude-opus-4-8`（`routing.ts` で一元管理・変更容易） |
 | 4 | 管理者 | 1名（コネクタ・プロンプト・ボット保守）※要指名 |
 | 5 | 月次予算上限 | アラートは80%到達で通知。上限額は試用実測後に確定 |

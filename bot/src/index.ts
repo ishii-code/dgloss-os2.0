@@ -7,7 +7,8 @@ import { config } from "./config.js";
 import { verifyChatRequest } from "./chat/verify.js";
 import { handleChatEvent } from "./chat/handler.js";
 import { buildAuthUrl, exchangeCodeForToken, revokeAllTokens } from "./sources/googleAuth.js";
-import type { ChatEvent } from "./chat/types.js";
+import { processAndPost } from "./brain/process.js";
+import type { ChatEvent, BrainRequest } from "./chat/types.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -59,6 +60,24 @@ app.get("/oauth/callback", async (req: Request, res: Response) => {
   } catch (e) {
     console.error("[/oauth/callback]", e);
     return res.status(500).send("連携に失敗しました。時間をおいて再度お試しください。");
+  }
+});
+
+/**
+ * 非同期回答ワーカー（S4・ASYNC_MODE=cloudtasks）。Cloud Tasks から呼ばれ、
+ * 頭脳を実行して Chat に回答を投稿する。共有トークンで保護（本番はOIDCも併用可）。
+ */
+app.post("/tasks/answer", async (req: Request, res: Response) => {
+  const provided = req.header("x-task-token");
+  if (config.tasks.token && provided !== config.tasks.token) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  try {
+    await processAndPost(req.body as BrainRequest);
+    return res.status(204).end();
+  } catch (e) {
+    console.error("[/tasks/answer]", e);
+    return res.status(500).json({ error: "processing failed" });
   }
 });
 

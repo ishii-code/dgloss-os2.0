@@ -43,8 +43,29 @@ const event: ChatEvent = {
   space: { name: "spaces/AAAA", type: "DM" },
 };
 
+// --- S4 非同期ワーカー：頭脳実行→Chat投稿の往復（MOCKはchat_postログ）---
+const { processAndPost } = await import("../src/brain/process.js");
+let posted = false;
+const origLog = console.log;
+console.log = (...a: unknown[]) => {
+  if (typeof a[0] === "string" && a[0].includes("chat_post")) posted = true;
+  origLog(...a);
+};
+await processAndPost({
+  question: "テスト質問",
+  userId: "users/123",
+  spaceName: "spaces/AAAA",
+  threadName: "spaces/AAAA/threads/BBBB",
+});
+console.log = origLog;
+if (!posted) {
+  console.error("非同期ワーカーがChatへ投稿しませんでした");
+  process.exit(1);
+}
+console.log("✅ 非同期回答ワーカー（頭脳→Chat投稿）OK");
+
 const res = await handleChatEvent(event);
-console.log("=== Chat レスポンス ===");
+console.log("=== Chat レスポンス（同期モード）===");
 console.log(res.text);
 
 if (!res.text.includes("MOCK")) {
