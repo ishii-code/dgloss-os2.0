@@ -48,6 +48,7 @@ export const config = {
     url: optionalEnv("SUPABASE_URL"),
     serviceRoleKey: optionalEnv("SUPABASE_SERVICE_ROLE_KEY"),
     tokenTable: optionalEnv("SUPABASE_TOKEN_TABLE") ?? "oauth_tokens",
+    qaTable: optionalEnv("SUPABASE_QA_TABLE") ?? "qa_logs",
   },
 
   /**

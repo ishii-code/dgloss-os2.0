@@ -42,14 +42,8 @@ Google Chatボット（ディグロス・ブレイン）を実データで動か
 - **控える値④**：`SUPABASE_URL` ／ `service_role` キー
 
 ### B-2 テーブル作成（SQL エディタで実行）
-```sql
-create table oauth_tokens (
-  user_id text primary key,
-  blob jsonb not null,            -- アプリ層で暗号化済のトークン
-  updated_at timestamptz default now()
-);
-alter table oauth_tokens enable row level security;  -- service_role のみアクセス（匿名公開しない）
-```
+`bot/db/schema.sql` の**全文を貼って実行するだけ**（`oauth_tokens`／`customer_summaries`／`qa_logs` の3テーブル・RLS有効・索引込み）。
+個別に作る必要はありません。RLSポリシーを作らない＝サーバの service_role キーのみアクセス可（匿名公開しない）。
 
 ---
 
