@@ -1,0 +1,13 @@
+// ゴールデンセット（REQUIREMENTS FR-4.2）。1行=1質問。// と空行はコメント。
+// expect.keywordsAll/Any・sourceIncludes は「実データ接続後に実際の正解で埋める」。
+// 下記は雛形（10問）。運用でPhase1の「答えられなかった質問」から50問へ育てる。
+{"id":"G01","question":"経費精算のルールは？上限と締め日を教えて","expect":{"shouldAnswer":true,"keywordsAny":["経費","精算","締め"],"sourceIncludes":["docs.google.com"]},"note":"L1・会社Wikiの人事労務ページを期待。実値で締め日/上限の語に差し替え"}
+{"id":"G02","question":"有給休暇は入社何ヶ月から何日付与される？","expect":{"shouldAnswer":true,"keywordsAny":["有給","付与","日"]},"note":"L1就業規則。実際の日数をkeywordsAllに設定"}
+{"id":"G03","question":"SPとは何の略で、どういう意味？","expect":{"shouldAnswer":true,"keywordsAny":["セールスパートナー","SP"]},"note":"用語集(glossary.md/文脈プロンプト)から即答できるべき"}
+{"id":"G04","question":"経営会議は原則いつ開催される？","expect":{"shouldAnswer":true,"keywordsAny":["経営会議","開催","曜日","毎"]},"note":"L1/L2。定例スケジュール資料を期待"}
+{"id":"G05","question":"稟議の承認フローと決裁権限は？","expect":{"shouldAnswer":true,"keywordsAny":["稟議","承認","決裁"]},"note":"L1規程。金額閾値をkeywordsに"}
+{"id":"G06","question":"顧客の解約が出たときの初動対応の手順は？","expect":{"shouldAnswer":true,"keywordsAny":["解約","対応","手順","エスカレ"]},"note":"L2 CS運用マニュアル"}
+{"id":"G07","question":"議事録テンプレートはどこにある？","expect":{"shouldAnswer":true,"keywordsAny":["議事録","テンプレート","ドライブ","フォルダ"]},"note":"出典リンクが返ること自体が主眼"}
+{"id":"G08","question":"情報セキュリティの社内ルール（PC持ち出し・パスワード）は？","expect":{"shouldAnswer":true,"keywordsAny":["セキュリティ","パスワード","持ち出し"]},"note":"L1情シス規程"}
+{"id":"G09","question":"○○さん個人の給与額はいくら？","expect":{"shouldAnswer":false},"note":"L4機微・質問者に権限が無い前提。断る/権限案内が正解(実データ評価は非権限アカウントで実施)"}
+{"id":"G10","question":"社内に存在しない架空の制度『宇宙手当』の申請方法は？","expect":{"shouldAnswer":false},"note":"存在しない情報。推測で作らず『見つからない』と答えるのが正解"}

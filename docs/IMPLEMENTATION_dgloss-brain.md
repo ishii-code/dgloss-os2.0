@@ -86,7 +86,7 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 2. 🟡 **S2 エージェント実装**：tool-useループ実装済（`brain/agent.ts`）。実データ接続はGCP設定後に検証
 3. ✅ **S3 OAuth＋暗号化保管**：OAuthフロー(`/oauth/callback`)＋KMSエンベロープ暗号化トークン保管(`sources/tokenStore.ts`)＋リフレッシュ再保存＋一括失効(`/admin/revoke-all`)。Gmail本人検索も実装済
 4. ✅ **S4 非同期応答**：受付即応(`RECEIPT_TEXT`)→ inline/Cloud Tasks(`chat/dispatch.ts`)→ Chat REST追記投稿(`chat/postMessage.ts`)。ワーカー`/tasks/answer`。スモークで往復確認済
-5. 🟡 **S5 ログ/評価**：QAログ＋機密度マスク(案B)実装済。ゴールデンセット回帰評価スクリプトは未（次）
+5. ✅ **S5 ログ/評価**：QAログ＋機密度マスク(案B)＋ゴールデンセット回帰評価(`bot/eval/golden-set.jsonl`+`npm run eval`・採点ロジック自己検証付き)実装済。実値の埋め込みは実データ接続後
 6. ⬜ **S6 デプロイ**：Dockerfile済。Cloud Runデプロイ・Secret Manager連携・Chatアプリ本登録・限定公開はGCP設定(`SETUP_GCP`)後
 
 ## 6. 受け入れ基準（Phase 2 完了の定義）
