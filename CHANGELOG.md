@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.0.0...v1.1.0) (2026-07-14)
+
+
+### Features
+
+* **eval:** ゴールデンセット回帰評価ハーネスを追加 (S5) ([1c6ca37](https://github.com/ishii-code/dgloss-os2.0/commit/1c6ca371b1f93c04a1dfbab95cc1a94857100a84))
+
 # 1.0.0 (2026-07-14)
 
 
