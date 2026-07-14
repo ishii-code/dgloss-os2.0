@@ -1,8 +1,16 @@
 /**
  * ユーザーOAuthトークンの保管（SECURITY 判断1・T1）。
  * トークンは常に暗号化して保存する（平文で持たない）。一括失効(revokeAll)を備える。
- *  - 本番: Firestore に暗号化ブロブを保存
+ *  - 本番: Supabase Postgres に暗号化ブロブを保存（dgloss標準 TECH_STACK）
  *  - 開発(MOCK): インメモリ（暗号化往復は同じコードで実施）
+ *
+ * テーブル定義（Supabase / SQL）:
+ *   create table oauth_tokens (
+ *     user_id text primary key,
+ *     blob    jsonb not null,           -- EncryptedBlob（アプリ層で暗号化済）
+ *     updated_at timestamptz default now()
+ *   );
+ *   alter table oauth_tokens enable row level security;  -- service_role のみアクセス
  */
 import { config } from "../config.js";
 import { getKeyManager } from "./keyManager.js";
@@ -49,56 +57,54 @@ class InMemoryTokenStore implements TokenStore {
   }
 }
 
-/** 本番用。Firestore コレクションに暗号化ブロブを保存 */
-class FirestoreTokenStore implements TokenStore {
-  private readonly collection: string;
-  constructor(collection: string) {
-    this.collection = collection;
+/** 本番用。Supabase テーブルに暗号化ブロブを保存 */
+class SupabaseTokenStore implements TokenStore {
+  private readonly table: string;
+  constructor(table: string) {
+    this.table = table;
   }
-  private async db() {
-    const { Firestore } = await import("@google-cloud/firestore");
-    return new Firestore();
+  private async client() {
+    const { createClient } = await import("@supabase/supabase-js");
+    if (!config.supabase.url || !config.supabase.serviceRoleKey) {
+      throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY が未設定です");
+    }
+    return createClient(config.supabase.url, config.supabase.serviceRoleKey, {
+      auth: { persistSession: false },
+    });
   }
   async get(userId: string) {
-    const db = await this.db();
-    const snap = await db.collection(this.collection).doc(encodeKey(userId)).get();
-    if (!snap.exists) return undefined;
-    return decode(snap.data() as EncryptedBlob);
+    const db = await this.client();
+    const { data, error } = await db.from(this.table).select("blob").eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    return data?.blob ? decode(data.blob as EncryptedBlob) : undefined;
   }
   async set(userId: string, token: StoredToken) {
-    const db = await this.db();
-    await db.collection(this.collection).doc(encodeKey(userId)).set(await encode(token));
+    const db = await this.client();
+    const blob = await encode(token);
+    const { error } = await db.from(this.table).upsert({ user_id: userId, blob, updated_at: new Date().toISOString() });
+    if (error) throw error;
   }
   async delete(userId: string) {
-    const db = await this.db();
-    await db.collection(this.collection).doc(encodeKey(userId)).delete();
+    const db = await this.client();
+    const { error } = await db.from(this.table).delete().eq("user_id", userId);
+    if (error) throw error;
   }
   async revokeAll() {
-    const db = await this.db();
-    const docs = await db.collection(this.collection).listDocuments();
-    let n = 0;
-    // バッチ削除（500件ずつ）
-    for (let i = 0; i < docs.length; i += 500) {
-      const batch = db.batch();
-      for (const d of docs.slice(i, i + 500)) batch.delete(d);
-      await batch.commit();
-      n += Math.min(500, docs.length - i);
-    }
-    return n;
+    const db = await this.client();
+    // 件数を数えてから全削除
+    const { count } = await db.from(this.table).select("*", { count: "exact", head: true });
+    const { error } = await db.from(this.table).delete().neq("user_id", "");
+    if (error) throw error;
+    return count ?? 0;
   }
-}
-
-/** "users/123" 等をドキュメントIDに使える形へ */
-function encodeKey(userId: string): string {
-  return Buffer.from(userId).toString("base64url");
 }
 
 let cached: TokenStore | undefined;
 export function getTokenStore(): TokenStore {
   if (cached) return cached;
   cached =
-    !config.mockMode && config.firestore.collection
-      ? new FirestoreTokenStore(config.firestore.collection)
+    !config.mockMode && config.supabase.url
+      ? new SupabaseTokenStore(config.supabase.tokenTable)
       : new InMemoryTokenStore();
   return cached;
 }

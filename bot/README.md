@@ -29,33 +29,36 @@ curl -s localhost:8080/chat -H 'content-type: application/json' \
 
 ```
 bot/
+├─ api/index.ts           # Vercel Functions エントリ（Express app を公開）
+├─ vercel.json            # Vercel設定（全パスを api/index へ・maxDuration）
 ├─ src/
-│  ├─ index.ts            # Cloud Run エントリ（/chat, /healthz, /oauth/start）
+│  ├─ index.ts            # Express app（/chat, /healthz, /oauth/*, /admin/revoke-all）
 │  ├─ config.ts           # 環境変数の一元管理
-│  ├─ chat/               # Google Chat 層（JWT検証・イベント正規化・応答整形）
+│  ├─ chat/               # Google Chat 層（JWT検証・正規化・応答整形・非同期dispatch・投稿）
 │  ├─ brain/              # 頭脳層（tool-useループ・システムプロンプト・モデルルーティング）
-│  ├─ sources/            # データ層（ユーザーOAuth・Drive検索・Gmail検索）
-│  └─ logging/            # QAログ・未回答ログ（監査/改善）
+│  ├─ sources/            # データ層（ユーザーOAuth・暗号化トークン保管・Drive/Gmail検索）
+│  └─ logging/            # QAログ・機密度マスク（監査/改善）
 ├─ context/               # 用語集・組織図（システムプロンプトの中核データ＝育てる資産）
-├─ scripts/smoke.ts       # スモークテスト
-└─ Dockerfile            # Cloud Run 用
+└─ scripts/smoke.ts       # スモークテスト
 ```
 
-## 本番投入までの残タスク（実装計画 §5 S2〜S6）
+デプロイ：**Vercel（team: dg-bo）＋ Supabase**（dgloss標準 TECH_STACK）。GCPはChat/Drive/Gmail APIとOAuthのみ。
+
+## 本番投入までの残タスク
 
 1. **S2** エージェントを実データ接続（Drive検索の抜粋整形強化）
-2. **S3** ユーザーOAuthフロー本実装＋トークン永続化（Firestore）
-3. **S4** 受付即応→非同期実行→Chat REST 追記投稿
-4. **S5** QAログの永続化＋ゴールデンセット回帰評価
-5. **S6** Dockerfile/Cloud Run デプロイ・Secret Manager 連携・Chatアプリ本登録
+2. **S5** ゴールデンセット回帰評価スクリプト
+3. **S6** Vercelデプロイ・Supabaseテーブル作成・環境変数設定・Chatアプリ本登録・限定公開
+（S3 OAuth＋暗号化トークン保管／S4 非同期応答 は実装済）
 
-## 石井さん側（GCP設定）で必要なこと
+## 石井さん側で必要な設定
 
-実装計画書 `../docs/IMPLEMENTATION_dgloss-brain.md` §2 の「GCP設定」行を参照。
+`../docs/SETUP_GCP_dgloss-brain.md`（Vercel＋Supabase＋GCP-API）の「控える値」を参照。
 これらが揃うと MOCK_MODE=false で実データ疎通が可能になる。
 
 ## セキュリティ方針（要点）
 
-- ボットのサービスアカウントに **ドメインワイド委任はしない**。検索は常に質問者本人のOAuthトークンで実行 → 共有ドライブ権限（L1〜L4）がそのまま効く
+- ボットに **ドメインワイド委任はしない**。検索は常に質問者本人のOAuthトークンで実行 → 共有ドライブ権限（L1〜L4）がそのまま効く
+- トークンはアプリ層でエンベロープ暗号化し **Supabase** に保存（`SECURITY_dgloss-brain.md` T1）
 - エラーレスポンスにスタックトレースを含めない（サーバーログのみ）
-- APIキー・OAuth秘密は Secret Manager から注入（`.env` はローカル試用のみ・コミット禁止）
+- APIキー・秘密は **Vercel環境変数** から注入（`.env` はローカル試用のみ・コミット禁止）

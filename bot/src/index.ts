@@ -1,5 +1,6 @@
 /**
- * Cloud Run エントリポイント。Google Chat の Webフックを受ける HTTP サーバー。
+ * HTTPアプリ本体（Express）。Google Chat の Webフックを受ける。
+ * デプロイは Vercel（`api/index.ts` がこの app を関数として公開）。ローカルは app.listen で起動。
  */
 import express from "express";
 import type { Request, Response } from "express";
@@ -7,10 +8,9 @@ import { config } from "./config.js";
 import { verifyChatRequest } from "./chat/verify.js";
 import { handleChatEvent } from "./chat/handler.js";
 import { buildAuthUrl, exchangeCodeForToken, revokeAllTokens } from "./sources/googleAuth.js";
-import { processAndPost } from "./brain/process.js";
-import type { ChatEvent, BrainRequest } from "./chat/types.js";
+import type { ChatEvent } from "./chat/types.js";
 
-const app = express();
+export const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 /** ヘルスチェック */
@@ -64,24 +64,6 @@ app.get("/oauth/callback", async (req: Request, res: Response) => {
 });
 
 /**
- * 非同期回答ワーカー（S4・ASYNC_MODE=cloudtasks）。Cloud Tasks から呼ばれ、
- * 頭脳を実行して Chat に回答を投稿する。共有トークンで保護（本番はOIDCも併用可）。
- */
-app.post("/tasks/answer", async (req: Request, res: Response) => {
-  const provided = req.header("x-task-token");
-  if (config.tasks.token && provided !== config.tasks.token) {
-    return res.status(403).json({ error: "forbidden" });
-  }
-  try {
-    await processAndPost(req.body as BrainRequest);
-    return res.status(204).end();
-  } catch (e) {
-    console.error("[/tasks/answer]", e);
-    return res.status(500).json({ error: "processing failed" });
-  }
-});
-
-/**
  * 一括失効（SECURITY §5・T1インシデント対応）。侵害時に全ユーザーのトークンを削除する。
  * 管理用の共有シークレット（ADMIN_API_TOKEN）が一致した場合のみ実行。
  */
@@ -100,8 +82,9 @@ app.post("/admin/revoke-all", async (req: Request, res: Response) => {
   }
 });
 
-app.listen(config.port, () => {
-  console.log(
-    `dgloss-brain-bot listening on :${config.port} (mockMode=${config.mockMode})`,
-  );
-});
+// ローカル/常駐実行時のみ listen（Vercel 上では api/index.ts が app を関数化するため不要）
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    console.log(`dgloss-brain-bot listening on :${config.port} (mockMode=${config.mockMode})`);
+  });
+}

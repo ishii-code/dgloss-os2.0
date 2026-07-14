@@ -48,10 +48,10 @@
 Google Chat (@メンション/DM)
       │  HTTPS POST（Bearer JWT）
       ▼
-Cloud Run（Node/TypeScript, Express）      ← bot/src/index.ts
+Vercel Functions（Node/TypeScript, Express）  ← bot/api/index.ts → bot/src/index.ts
       │  ① JWT検証（発行者=chat@system.gserviceaccount.com）
       │  ② 3秒以内に受付応答（"調べています…"）を返す
-      │  ③ 非同期でエージェント実行 → 完了後に Chat REST で追記投稿
+      │  ③ waitUntilでエージェント実行 → 完了後に Chat REST で追記投稿
       ▼
 Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/brain/agent.ts
       │  質問分解 → 検索ツール呼び出し → 出典付き合成
@@ -65,8 +65,12 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 権限の肝（`ACCESS_CONTROL` §3 Phase 2）：**ボットのサービスアカウントにドメインワイド委任はしない。**
 各ユーザーが初回に OAuth 連携し、そのトークンで本人として検索する。→ 共有ドライブ権限がそのまま効き、L1〜L4制御が自動成立。
 
-**デプロイ先の決定（2026-07-14 石井）**：**ボットはCloud Run／フロントエンド(Next.js)は従来どおりVercel**。
-理由：ボットが触るKMS暗号鍵・Firestore・Workspaceは全てGCP内にあり、同じGCPに置けば**GCPの静的認証鍵を社外(Vercel)に出さずに済む**（SECURITY方針＝鍵を外に出さないと一致）。加えて長時間・非同期処理がCloud Runの方が自然。Chat API/KMS/Firestoreは元々GCP必須なので、Cloud Run採用でプラットフォームは増えない（追加契約なし・無料枠内でほぼ無償）。
+**デプロイ先の決定（2026-07-14 石井・改訂）**：**ボットもVercel（team: dg-bo）＋Supabase** に統一（dgloss標準 `TECH_STACK` 準拠）。
+当初Cloud Run案だったが、社内標準がVercel+Supabaseを規定しており、かつSupabase(Vault/暗号化列)＋ユーザーOAuthで「GCP静的鍵を社外に出す」懸念は解消するため、標準に合わせる。
+- compute=Vercel Functions（`api/index.ts` が Express app を関数化）、非同期=`waitUntil`
+- トークン保管=Supabase Postgres（アプリ層エンベロープ暗号化・KEKはVercel環境変数、将来Supabase Vault(pgsodium)へ）
+- **GCPはAPIとOAuthのみ**：Google Chat API有効化・OAuthクライアント・Chatアプリ登録（compute/DBは持たない）
+- Chat投稿用のChatアプリSA鍵JSONのみVercel環境変数に格納（唯一のGCP資格情報）
 
 ## 4. コスト最適化の実装ポイント（`COST_DESIGN` の反映）
 
@@ -98,8 +102,9 @@ Claude エージェント（Anthropic Messages API + tool use）  ← bot/src/br
 | # | 事項 | 現時点の仮定（進める） |
 |---|---|---|
 | 1 | トークン保存先 | Firestore（Cloud Run から最小権限で読み書き）を採用 |
-| 2 | 非同期実行基盤 | `ASYNC_MODE`で切替(off/inline/cloudtasks)実装済。まずinline、負荷が出たらcloudtasks |
-| 2' | デプロイ先 | **決定：ボット=Cloud Run／フロント=Vercel**（§3参照） |
+| 2 | 非同期実行基盤 | `ASYNC_MODE`で切替(off/inline)。inlineはVercel `waitUntil` で応答後に背景実行 |
+| 2' | デプロイ先 | **決定：ボットもVercel＋Supabase（dgloss標準準拠）**。GCPはAPI/OAuthのみ（§3参照） |
+| 6 | 標準準拠 | ARCHITECTURE(polyrepo/contract-first)・RELEASE(semantic-release)へ順次整合。当面は単一リポ+Conventional Commits+自動リリースから |
 | 3 | 使用モデルID | Haiku=`claude-haiku-4-5-20251001` / Sonnet=`claude-sonnet-4-6` / Opus=`claude-opus-4-8`（`routing.ts` で一元管理・変更容易） |
 | 4 | 管理者 | 1名（コネクタ・プロンプト・ボット保守）※要指名 |
 | 5 | 月次予算上限 | アラートは80%到達で通知。上限額は試用実測後に確定 |

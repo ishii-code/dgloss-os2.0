@@ -1,5 +1,6 @@
 /**
  * 環境変数の一元読み込み。サーバーサイドのみで参照する（NEXT_PUBLIC_ 等の露出はしない）。
+ * デプロイ基盤は dgloss標準（TECH_STACK）に合わせ Vercel + Supabase。
  */
 
 function env(key: string, fallback?: string): string {
@@ -16,14 +17,17 @@ function optionalEnv(key: string): string | undefined {
 export const config = {
   port: Number(env("PORT", "8080")),
 
-  /** モックモード: GCP/Anthropic 設定前でもローカル起動・単体確認できるようにする */
+  /** モックモード: Supabase/Anthropic/Google 設定前でもローカル起動・単体確認できる */
   mockMode: env("MOCK_MODE", "true").toLowerCase() === "true",
 
   anthropicApiKey: optionalEnv("ANTHROPIC_API_KEY"),
 
   chat: {
+    /** Chat JWT の audience 検証に使うGCPプロジェクト番号 */
     projectNumber: optionalEnv("GOOGLE_CLOUD_PROJECT_NUMBER"),
     appServiceAccountEmail: optionalEnv("CHAT_APP_SA_EMAIL"),
+    /** ボット→Chat投稿用のサービスアカウント鍵JSON（Vercel環境変数に格納） */
+    appServiceAccountKey: optionalEnv("CHAT_APP_SA_KEY_JSON"),
   },
 
   oauth: {
@@ -39,37 +43,27 @@ export const config = {
     ],
   },
 
-  /** トークン暗号化の鍵（SECURITY T1）。本番は Cloud KMS の鍵リソース名 */
-  kms: {
-    keyName: optionalEnv("KMS_KEY_NAME"),
+  /** トークン保管（SECURITY 判断1・T1）。Supabase Postgres に暗号化ブロブを保存 */
+  supabase: {
+    url: optionalEnv("SUPABASE_URL"),
+    serviceRoleKey: optionalEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    tokenTable: optionalEnv("SUPABASE_TOKEN_TABLE") ?? "oauth_tokens",
   },
 
-  /** トークン保管の Firestore コレクション（本番） */
-  firestore: {
-    collection: optionalEnv("FIRESTORE_TOKEN_COLLECTION") ?? "oauth_tokens",
-  },
+  /**
+   * トークン暗号化のマスター鍵(KEK)。base64・32byte。Vercel環境変数に格納。
+   * 本番の推奨は Supabase Vault(pgsodium) 管理へ移行（SECURITY §3 T1 フォローアップ）。
+   */
+  tokenMasterKeyB64: optionalEnv("TOKEN_MASTER_KEY"),
 
-  /** 一括失効API等の管理操作を許可する共有シークレット（本番は要設定） */
+  /** 一括失効API等の管理操作を許可する共有シークレット */
   admin: {
     token: optionalEnv("ADMIN_API_TOKEN"),
   },
 
-  /** ローカル開発用（MOCK時のみ有効）の簡易マスター鍵（base64・32byte） */
-  dev: {
-    masterKeyB64: optionalEnv("DEV_MASTER_KEY"),
-  },
-
-  /** 非同期回答（S4）。off=同期 / inline=プロセス内背景 / cloudtasks=Cloud Tasks */
+  /** 非同期回答（S4）。off=同期 / inline=応答後に waitUntil で背景実行（Vercel） */
   async: {
-    mode: (optionalEnv("ASYNC_MODE") ?? "off") as "off" | "inline" | "cloudtasks",
-  },
-
-  /** Cloud Tasks 設定（ASYNC_MODE=cloudtasks時） */
-  tasks: {
-    queuePath: optionalEnv("TASKS_QUEUE_PATH"), // projects/../locations/../queues/..
-    workerUrl: optionalEnv("TASKS_WORKER_URL"), // https://.../tasks/answer
-    invokerSaEmail: optionalEnv("TASKS_INVOKER_SA"), // OIDC発行に使うSA
-    token: optionalEnv("TASKS_SHARED_TOKEN"), // /tasks/answer 保護用
+    mode: (optionalEnv("ASYNC_MODE") ?? "off") as "off" | "inline",
   },
 
   /** 1質問あたり入力トークン上限（COST_DESIGN §2⑥） */
