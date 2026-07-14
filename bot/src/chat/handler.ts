@@ -6,6 +6,7 @@ import type { ChatEvent, ChatResponse, BrainRequest } from "./types.js";
 import { config } from "../config.js";
 import { processAnswer } from "../brain/process.js";
 import { dispatchAnswer } from "./dispatch.js";
+import { buildAnswerPayload } from "./card.js";
 
 /** 非同期時にまず返す受付応答（3秒以内・NFR-1） */
 const RECEIPT_TEXT = "調べています…少しお待ちください。（回答はこのスレッドに投稿します）";
@@ -54,10 +55,12 @@ async function handleMessage(event: ChatEvent): Promise<ChatResponse> {
     };
   }
 
-  // 同期モード（または投稿先が取れない場合）：その場で回答を返す
+  // 同期モード（または投稿先が取れない場合）：その場で回答を返す（出典カード付き）
   const result = await processAnswer(req);
+  const payload = buildAnswerPayload(result.answer, result.citations);
   return {
-    text: result.answer,
+    text: payload.text,
+    cardsV2: payload.cardsV2,
     thread: req.threadName ? { name: req.threadName } : undefined,
   };
 }

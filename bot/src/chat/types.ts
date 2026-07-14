@@ -35,9 +35,10 @@ export interface ChatEvent {
   message?: ChatMessage;
 }
 
-/** Chat への同期レスポンス（テキスト or カード） */
+/** Chat への同期レスポンス（テキスト＋任意で cardsV2） */
 export interface ChatResponse {
   text: string;
+  cardsV2?: import("./card.js").ChatCardV2[];
   thread?: { name?: string };
 }
 

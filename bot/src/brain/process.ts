@@ -19,7 +19,7 @@ export async function processAndPost(req: BrainRequest): Promise<void> {
   try {
     const result = await processAnswer(req);
     if (req.spaceName) {
-      await postToChat(req.spaceName, req.threadName, result.answer);
+      await postToChat(req.spaceName, req.threadName, result.answer, result.citations);
     }
   } catch (e) {
     console.error("[processAndPost]", e);
