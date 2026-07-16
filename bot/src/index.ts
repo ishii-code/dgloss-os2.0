@@ -9,10 +9,31 @@ import { verifyChatRequest } from "./chat/verify.js";
 import { handleChatEvent } from "./chat/handler.js";
 import { buildAuthUrl, exchangeCodeForToken, revokeAllTokens } from "./sources/googleAuth.js";
 import { runNightlySummary } from "./jobs/nightlySummary.js";
+import { processAnswer } from "./brain/process.js";
 import type { ChatEvent } from "./chat/types.js";
 
 export const app = express();
 app.use(express.json({ limit: "1mb" }));
+
+/**
+ * 開発用エンドポイント（ローカル動作確認）。ALLOW_DEV_ASK=1 のときだけ有効。
+ * Chat の JWT 検証を経ずに質問→出典付き回答を試せる（本番では絶対に有効化しない）。
+ *   curl -s localhost:8080/dev/ask -H 'content-type: application/json' -d '{"question":"...","userId":"me"}'
+ */
+if (process.env.ALLOW_DEV_ASK === "1") {
+  app.post("/dev/ask", async (req: Request, res: Response) => {
+    const body = req.body as { question?: string; userId?: string };
+    if (!body.question) return res.status(400).json({ error: "question required" });
+    try {
+      const result = await processAnswer({ question: body.question, userId: body.userId ?? "dev" });
+      return res.json({ answer: result.answer, citations: result.citations, model: result.model });
+    } catch (e) {
+      console.error("[/dev/ask]", e);
+      return res.status(500).json({ error: "failed" });
+    }
+  });
+  console.log("[dev] /dev/ask 有効（開発用・本番禁止）");
+}
 
 /** ヘルスチェック */
 app.get("/healthz", (_req: Request, res: Response) => {
