@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.3.0...v1.4.0) (2026-07-16)
+
+
+### Features
+
+* **dev:** ローカル動作確認用 /dev/ask エンドポイントを追加 ([e289b1e](https://github.com/ishii-code/dgloss-os2.0/commit/e289b1e5b156889dfe16f861becfafe148114abd))
+
 # [1.3.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.2.0...v1.3.0) (2026-07-14)
 
 
