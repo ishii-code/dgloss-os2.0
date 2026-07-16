@@ -2,6 +2,7 @@
  * HTTPアプリ本体（Express）。Google Chat の Webフックを受ける。
  * デプロイは Vercel（`api/index.ts` がこの app を関数として公開）。ローカルは app.listen で起動。
  */
+import "dotenv/config"; // ローカルは bot/.env を自動読込（Vercelは環境変数を注入するので無害）
 import express from "express";
 import type { Request, Response } from "express";
 import { config } from "./config.js";
@@ -32,8 +33,59 @@ if (process.env.ALLOW_DEV_ASK === "1") {
       return res.status(500).json({ error: "failed" });
     }
   });
-  console.log("[dev] /dev/ask 有効（開発用・本番禁止）");
+
+  // ブラウザで使える簡易ページ（開発用）
+  app.get("/dev", (_req: Request, res: Response) => {
+    res.type("html").send(DEV_PAGE_HTML);
+  });
+
+  console.log("[dev] /dev（画面）と /dev/ask 有効（開発用・本番禁止）");
 }
+
+/** ローカル動作確認用の簡易UI（ALLOW_DEV_ASK=1のときだけ /dev で配信） */
+const DEV_PAGE_HTML = `<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ディグロス・ブレイン（ローカル）</title>
+<style>
+  :root{ --y:#FCB900; --o:#FF6900; --tx:#1A1A1A; }
+  *{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:var(--tx);max-width:760px;margin:0 auto;padding:24px;background:#faf9f7}
+  h1{font-size:20px;display:flex;align-items:center;gap:8px} .dot{width:14px;height:14px;border-radius:50%;background:var(--y)}
+  .bar{display:flex;gap:8px;margin:16px 0} textarea{flex:1;min-height:56px;padding:12px;font-size:16px;border:1px solid #ddd;border-radius:10px;resize:vertical}
+  button{background:var(--y);border:none;border-radius:10px;padding:0 20px;font-size:16px;font-weight:700;cursor:pointer;min-height:48px}
+  button:disabled{opacity:.5;cursor:default} a.link{color:var(--o);font-size:13px}
+  .ans{white-space:pre-wrap;background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;margin-top:8px;line-height:1.7}
+  .cites{margin-top:12px} .cites a{display:block;color:var(--o);font-size:14px;margin:4px 0;text-decoration:none} .cites a:hover{text-decoration:underline}
+  .meta{color:#999;font-size:12px;margin-top:8px} .hint{color:#888;font-size:13px}
+</style></head>
+<body>
+  <h1><span class="dot"></span>ディグロス・ブレイン <span class="hint">（ローカル動作確認）</span></h1>
+  <p class="hint">初回は <a class="link" href="/oauth/start?userId=me" target="_blank">① Googleを連携</a> してから質問してください（自分のDrive/Gmailを本人権限で検索します）。</p>
+  <div class="bar">
+    <textarea id="q" placeholder="例：先週の〇〇社との打ち合わせで決まったことは？"></textarea>
+    <button id="ask">質問</button>
+  </div>
+  <div id="out"></div>
+<script>
+  const q=document.getElementById('q'), btn=document.getElementById('ask'), out=document.getElementById('out');
+  async function ask(){
+    const question=q.value.trim(); if(!question) return;
+    btn.disabled=true; out.innerHTML='<p class="hint">調べています…</p>';
+    try{
+      const r=await fetch('/dev/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question,userId:'me'})});
+      const d=await r.json();
+      if(!r.ok){ out.innerHTML='<p class="ans">エラー: '+(d.error||r.status)+'</p>'; return; }
+      let html='<div class="ans">'+(d.answer||'(空)').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>';
+      if(d.citations&&d.citations.length){ html+='<div class="cites"><b>出典</b>'+d.citations.map(function(u){return '<a href="'+u+'" target="_blank">'+u+'</a>'}).join('')+'</div>'; }
+      html+='<div class="meta">model: '+(d.model||'-')+'</div>';
+      out.innerHTML=html;
+    }catch(e){ out.innerHTML='<p class="ans">通信エラー: '+e+'</p>'; }
+    finally{ btn.disabled=false; }
+  }
+  btn.onclick=ask;
+  q.addEventListener('keydown',function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') ask(); });
+</script>
+</body></html>`;
 
 /** ヘルスチェック */
 app.get("/healthz", (_req: Request, res: Response) => {
