@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.4.0...v1.5.0) (2026-07-16)
+
+
+### Features
+
+* **dev:** ブラウザ用ローカル画面 /dev を追加＋dotenvで.env自動読込 ([9cc9208](https://github.com/ishii-code/dgloss-os2.0/commit/9cc9208a8ec732d5431eb183a5300fe0c7d87823))
+
 # [1.4.0](https://github.com/ishii-code/dgloss-os2.0/compare/v1.3.0...v1.4.0) (2026-07-16)
 
 
